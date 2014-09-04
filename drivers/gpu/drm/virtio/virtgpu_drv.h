@@ -22,7 +22,7 @@
 #include <ttm/ttm_module.h>
 
 #include "virtgpu_hw.h"
-#define DRIVER_NAME "virtio-gpu"
+#define DRIVER_NAME "virtio_gpu"
 #define DRIVER_DESC "virtio GPU"
 #define DRIVER_DATE "0"
 
