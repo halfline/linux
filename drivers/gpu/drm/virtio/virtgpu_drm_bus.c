@@ -2,8 +2,7 @@
 
 #include "virtgpu_drv.h"
 
-static int drm_virtio_set_busid(struct drm_device *dev,
-				struct drm_master *master)
+int drm_virtio_set_busid(struct drm_device *dev, struct drm_master *master)
 {
 	struct pci_dev *pdev = dev->pdev;
 
@@ -36,8 +35,6 @@ int drm_virtio_init(struct drm_driver *driver, struct virtio_device *vdev)
 {
 	struct drm_device *dev;
 	int ret;
-
-	driver->set_busid = drm_virtio_set_busid;
 
 	dev = drm_dev_alloc(driver, &vdev->dev);
 	if (!dev)
