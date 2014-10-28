@@ -118,3 +118,45 @@ int virtio_gpu_mode_dumb_mmap(struct drm_file *file_priv,
 	drm_gem_object_unreference_unlocked(gobj);
 	return 0;
 }
+
+int virtio_gpu_gem_object_open(struct drm_gem_object *obj,
+			       struct drm_file *file)
+{
+	struct virtio_gpu_device *vgdev = obj->dev->dev_private;
+	struct virtio_gpu_fpriv *vfpriv = file->driver_priv;
+	struct virtio_gpu_object *qobj = gem_to_virtio_gpu_obj(obj);
+	int r;
+
+	if (!vgdev->has_virgl_3d)
+		return 0;
+
+	r = virtio_gpu_object_reserve(qobj, false);
+	if (r)
+		return r;
+
+	r = virtio_gpu_cmd_context_attach_resource(vgdev, vfpriv->ctx_id,
+						qobj->hw_res_handle);
+	virtio_gpu_object_unreserve(qobj);
+	return r;
+}
+
+void virtio_gpu_gem_object_close(struct drm_gem_object *obj,
+				 struct drm_file *file)
+{
+	struct virtio_gpu_device *vgdev = obj->dev->dev_private;
+	struct virtio_gpu_fpriv *vfpriv = file->driver_priv;
+	struct virtio_gpu_object *qobj = gem_to_virtio_gpu_obj(obj);
+	int r;
+
+	if (!vgdev->has_virgl_3d)
+		return;
+
+	r = virtio_gpu_object_reserve(qobj, false);
+	if (r)
+		return;
+
+	r = virtio_gpu_cmd_context_detach_resource(vgdev, vfpriv->ctx_id,
+						qobj->hw_res_handle);
+	virtio_gpu_object_unreserve(qobj);
+	return;
+}
