@@ -65,9 +65,8 @@ int virtio_gpu_driver_load(struct drm_device *dev, unsigned long flags)
 	virtio_gpu_init_vq(&vgdev->ctrlq, virtio_gpu_dequeue_ctrl_func);
 	virtio_gpu_init_vq(&vgdev->cursorq, virtio_gpu_dequeue_cursor_func);
 
-	spin_lock_init(&vgdev->fence_drv.event_lock);
-	INIT_LIST_HEAD(&vgdev->fence_drv.event_list);
-	init_waitqueue_head(&vgdev->fence_queue);
+	spin_lock_init(&vgdev->fence_drv.lock);
+	INIT_LIST_HEAD(&vgdev->fence_drv.fences);
 	INIT_WORK(&vgdev->config_changed_work,
 		  virtio_gpu_config_changed_work_func);
 

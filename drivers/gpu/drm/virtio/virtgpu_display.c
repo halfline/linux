@@ -78,18 +78,11 @@ static int virtio_gpu_crtc_cursor_set(struct drm_crtc *crtc,
 						 cpu_to_le32(64),
 						 cpu_to_le32(64),
 						 0, 0, &fence);
-#if 0 /* FIXME */
 	if (!ret) {
-		struct virtio_gpu_fence *old_fence = qobj->tbo.sync_obj;
-
-		qobj->tbo.sync_obj =
-			vgdev->mman.bdev.driver->sync_obj_ref(fence);
-		virtio_gpu_fence_unref(&fence);
-		virtio_gpu_fence_unref(&old_fence);
-
+		reservation_object_add_excl_fence(qobj->tbo.resv,
+						  &fence->f);
 		virtio_gpu_object_wait(qobj, false);
 	}
-#endif
 
 	output->cursor.hdr.type = cpu_to_le32(VIRTIO_GPU_CMD_UPDATE_CURSOR);
 	output->cursor.resource_id = cpu_to_le32(qobj->hw_res_handle);

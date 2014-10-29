@@ -55,24 +55,21 @@ struct virtio_gpu_device;
 typedef void (*virtio_gpu_resp_cb)(struct virtio_gpu_device *vgdev,
 				   struct virtio_gpu_vbuffer *vbuf);
 
-#define VIRTIO_GPU_FENCE_SIGNALED_SEQ 0LL
-#define VIRTIO_GPU_FENCE_JIFFIES_TIMEOUT		(HZ / 2)
-
 struct virtio_gpu_fence_driver {
-	atomic64_t last_seq;
-	unsigned long last_activity;
-	bool initialized;
-	uint64_t sync_seq;
-	spinlock_t event_lock;
-	struct list_head event_list;
-	uint64_t first_seq_event_list;
+	atomic64_t       last_seq;
+	uint64_t         sync_seq;
+	struct list_head fences;
+	spinlock_t       lock;
 };
 
 struct virtio_gpu_fence {
-	struct virtio_gpu_device *vgdev;
-	struct kref kref;
+	struct fence f;
+	struct virtio_gpu_fence_driver *drv;
+	struct list_head node;
 	uint64_t seq;
 };
+#define to_virtio_fence(x) \
+	container_of(x, struct virtio_gpu_fence, f)
 
 struct virtio_gpu_vbuffer {
 	char *buf;
@@ -157,7 +154,6 @@ struct virtio_gpu_device {
 	spinlock_t display_info_lock;
 
 	struct virtio_gpu_fence_driver fence_drv;
-	wait_queue_head_t		fence_queue;
 
 	struct idr	ctx_id_idr;
 	spinlock_t ctx_id_idr_lock;
@@ -261,15 +257,11 @@ bool virtio_gpu_ttm_bo_is_virtio_gpu_object(struct ttm_buffer_object *bo);
 int virtio_gpu_mmap(struct file *filp, struct vm_area_struct *vma);
 
 /* virtio_gpu_fence.c */
-int virtio_gpu_fence_wait(struct virtio_gpu_fence *fence, bool intr);
 int virtio_gpu_fence_emit(struct virtio_gpu_device *vgdev,
 			  struct virtio_gpu_ctrl_hdr *cmd_hdr,
 			  struct virtio_gpu_fence **fence);
 void virtio_gpu_fence_event_process(struct virtio_gpu_device *vdev,
 				    u64 last_seq);
-void virtio_gpu_fence_unref(struct virtio_gpu_fence **fence);
-struct virtio_gpu_fence *virtio_gpu_fence_ref(struct virtio_gpu_fence *fence);
-bool virtio_gpu_fence_signaled(struct virtio_gpu_fence *fence);
 
 /* virtio_gpu_object */
 int virtio_gpu_object_create(struct virtio_gpu_device *vgdev,

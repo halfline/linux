@@ -178,10 +178,7 @@ void virtio_gpu_dequeue_ctrl_func(struct work_struct *work)
 	wake_up(&vgdev->ctrlq.ack_queue);
 
 	if (fence_id) {
-		atomic64_set(&vgdev->fence_drv.last_seq, fence_id);
 		virtio_gpu_fence_event_process(vgdev, fence_id);
-		vgdev->fence_drv.last_activity = jiffies;
-		wake_up_all(&vgdev->fence_queue);
 	}
 }
 
