@@ -113,7 +113,42 @@ static int virtio_gpu_crtc_page_flip(struct drm_crtc *crtc,
 				     struct drm_pending_vblank_event *event,
 				     uint32_t flags)
 {
-	return -EINVAL;
+	struct drm_device *dev = crtc->dev;
+	struct virtio_gpu_device *vgdev = dev->dev_private;
+	struct virtio_gpu_output *output = drm_crtc_to_virtio_gpu_output(crtc);
+	struct virtio_gpu_framebuffer *vgfb = to_virtio_gpu_framebuffer(fb);
+	struct virtio_gpu_object *bo = gem_to_virtio_gpu_obj(vgfb->obj);
+	unsigned long irqflags;
+
+	crtc->primary->fb = fb;
+	virtio_gpu_cmd_set_scanout(vgdev, output->index, bo->hw_res_handle,
+				   output->mode_hdisplay, output->mode_vdisplay,
+				   0, 0);
+#if 1
+	/*
+	 * Hmm, I think we should not need this, userspace should have
+	 * tagged updated areas via drm_framebuffer_funcs->dirty()
+	 * before invoking a page flip I think, and doing this here
+	 * may bring us into trouble in virgl mode.
+	 *
+	 * kmscon doesn't display anything without this tough ...
+	 */
+	virtio_gpu_cmd_transfer_to_host_2d(vgdev, bo->hw_res_handle, 0,
+					   cpu_to_le32(output->mode_hdisplay),
+					   cpu_to_le32(output->mode_vdisplay),
+					   cpu_to_le32(0), cpu_to_le32(0),
+					   NULL);
+#endif
+	virtio_gpu_cmd_resource_flush(vgdev, bo->hw_res_handle, 0, 0,
+				      output->mode_hdisplay,
+				      output->mode_vdisplay);
+	if (event) {
+		/* FIXME: fence cmd instead */
+		spin_lock_irqsave(&dev->event_lock, irqflags);
+		drm_send_vblank_event(dev, -1, event);
+		spin_unlock_irqrestore(&dev->event_lock, irqflags);
+	}
+	return 0;
 }
 
 
@@ -220,8 +255,10 @@ static int virtio_gpu_crtc_mode_set(struct drm_crtc *crtc,
 		  adjusted_mode->hdisplay,
 		  adjusted_mode->vdisplay);
 
+	output->mode_hdisplay = mode->hdisplay;
+	output->mode_vdisplay = mode->vdisplay;
 	virtio_gpu_cmd_set_scanout(vgdev, output->index, bo->hw_res_handle,
-				mode->hdisplay, mode->vdisplay, x, y);
+				   mode->hdisplay, mode->vdisplay, x, y);
 
 	return 0;
 }

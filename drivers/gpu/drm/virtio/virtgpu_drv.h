@@ -94,6 +94,8 @@ struct virtio_gpu_output {
 	struct drm_encoder enc;
 	struct virtio_gpu_display_one info;
 	struct virtio_gpu_update_cursor cursor;
+	int mode_hdisplay;
+	int mode_vdisplay;
 	int cur_x;
 	int cur_y;
 };
