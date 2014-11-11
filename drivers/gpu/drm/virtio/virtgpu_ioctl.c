@@ -401,6 +401,7 @@ static int virtio_gpu_transfer_from_host_ioctl(struct drm_device *dev,
 						  &fence->f);
 	}
 
+	fence_put(&fence->f);
 out_unres:
 	virtio_gpu_object_unreserve(qobj);
 out:
@@ -450,6 +451,7 @@ static int virtio_gpu_transfer_to_host_ioctl(struct drm_device *dev, void *data,
 			reservation_object_add_excl_fence(qobj->tbo.resv,
 							  &fence->f);
 		}
+		fence_put(&fence->f);
 	}
 
 out_unres:
