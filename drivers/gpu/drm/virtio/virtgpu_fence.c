@@ -21,8 +21,6 @@ static bool virtio_signaled(struct fence *f)
 	struct virtio_gpu_fence *fence = to_virtio_fence(f);
 
 	if (atomic64_read(&fence->drv->last_seq) >= fence->seq) {
-		list_del(&fence->node);
-		fence_put(&fence->f);
 		return true;
 	}
 	return false;
