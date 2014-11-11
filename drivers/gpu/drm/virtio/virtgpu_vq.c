@@ -164,7 +164,7 @@ void virtio_gpu_dequeue_ctrl_func(struct work_struct *work)
 
 			if (fence_id > f) {
 				DRM_ERROR("%s: Oops: fence %llx -> %llx\n",
-					  __func__, resp->fence_id, f);
+					  __func__, fence_id, f);
 			} else {
 				fence_id = f;
 			}
