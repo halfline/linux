@@ -315,16 +315,10 @@ static struct ttm_backend_func virtio_gpu_backend_func = {
 
 static int virtio_gpu_ttm_tt_populate(struct ttm_tt *ttm)
 {
-	int r;
-
 	if (ttm->state != tt_unpopulated)
 		return 0;
 
-	r = ttm_pool_populate(ttm);
-	if (r)
-		return r;
-
-	return 0;
+	return ttm_pool_populate(ttm);
 }
 
 static void virtio_gpu_ttm_tt_unpopulate(struct ttm_tt *ttm)
