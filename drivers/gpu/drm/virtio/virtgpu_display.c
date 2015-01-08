@@ -24,7 +24,8 @@
  */
 
 #include "virtgpu_drv.h"
-#include "drm_crtc_helper.h"
+#include <drm/drm_crtc_helper.h>
+#include <drm/drm_plane_helper.h>
 
 static void virtio_gpu_crtc_gamma_set(struct drm_crtc *crtc,
 				      u16 *red, u16 *green, u16 *blue,
