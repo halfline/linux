@@ -94,6 +94,7 @@ struct drm_dp_mst_port {
 	struct drm_dp_mst_topology_mgr *mgr;
 
 	struct edid *cached_edid; /* for DP logical ports - make tiling work */
+	bool has_audio;
 };
 
 /**
@@ -478,6 +479,7 @@ int drm_dp_mst_hpd_irq(struct drm_dp_mst_topology_mgr *mgr, u8 *esi, bool *handl
 
 enum drm_connector_status drm_dp_mst_detect_port(struct drm_connector *connector, struct drm_dp_mst_topology_mgr *mgr, struct drm_dp_mst_port *port);
 
+bool drm_dp_mst_port_has_audio(struct drm_dp_mst_topology_mgr *mgr, struct drm_dp_mst_port *port);
 struct edid *drm_dp_mst_get_edid(struct drm_connector *connector, struct drm_dp_mst_topology_mgr *mgr, struct drm_dp_mst_port *port);
 
 
