@@ -208,6 +208,7 @@ static void qxl_crtc_destroy(struct drm_crtc *crtc)
 	struct qxl_crtc *qxl_crtc = to_qxl_crtc(crtc);
 
 	drm_crtc_cleanup(crtc);
+	kfree(qxl_crtc->cursor);
 	kfree(qxl_crtc);
 }
 
@@ -286,6 +287,91 @@ qxl_hide_cursor(struct qxl_device *qdev)
 	return 0;
 }
 
+static int qxl_crtc_stash_cursor(struct drm_crtc *crtc,
+				struct qxl_cursor *cursor)
+{
+	struct qxl_crtc *qcrtc = to_qxl_crtc(crtc);
+	size_t cursor_size;
+
+	cursor_size = sizeof(struct qxl_cursor) + cursor->data_size;
+
+	if (!qcrtc->cursor || qcrtc->cursor->data_size != cursor->data_size) {
+		kfree(qcrtc->cursor);
+		qcrtc->cursor = kmalloc(cursor_size, GFP_KERNEL);
+
+		if (!qcrtc->cursor)
+			return -ENOMEM;
+	}
+
+	memcpy(qcrtc->cursor, cursor, cursor_size);
+
+	return 0;
+}
+
+static int qxl_crtc_apply_cursor(struct drm_crtc *crtc)
+{
+	struct qxl_crtc *qcrtc = to_qxl_crtc(crtc);
+	struct drm_device *dev = crtc->dev;
+	struct qxl_device *qdev = dev->dev_private;
+	struct qxl_cursor *cursor;
+	struct qxl_cursor_cmd *cmd;
+	struct qxl_bo *cursor_bo;
+	struct qxl_release *release;
+	size_t cursor_size;
+	int ret = 0;
+
+	if (!qcrtc->cursor)
+		return 0;
+
+	cursor_size = sizeof(*qcrtc->cursor) + qcrtc->cursor->data_size;
+
+	ret = qxl_alloc_release_reserved(qdev, sizeof(*cmd),
+					 QXL_RELEASE_CURSOR_CMD,
+					 &release, NULL);
+	if (ret)
+		return ret;
+
+	ret = qxl_alloc_bo_reserved(qdev, release, cursor_size, &cursor_bo);
+	if (ret)
+		goto out_free_release;
+
+	ret = qxl_release_reserve_list(release, false);
+	if (ret)
+		goto out_free_bo;
+
+	ret = qxl_bo_kmap(cursor_bo, (void **)&cursor);
+	if (ret)
+		goto out_backoff;
+
+	memcpy(cursor, qcrtc->cursor, cursor_size);
+
+	qxl_bo_kunmap(cursor_bo);
+
+	cmd = (struct qxl_cursor_cmd *)qxl_release_map(qdev, release);
+	cmd->type = QXL_CURSOR_SET;
+	cmd->u.set.position.x = qcrtc->cur_x;
+	cmd->u.set.position.y = qcrtc->cur_y;
+
+	cmd->u.set.shape = qxl_bo_physical_address(qdev, cursor_bo, 0);
+
+	cmd->u.set.visible = 1;
+	qxl_release_unmap(qdev, release, &cmd->release_info);
+
+	qxl_push_cursor_ring_release(qdev, release, QXL_CMD_CURSOR, false);
+	qxl_release_fence_buffer_objects(release);
+	qxl_bo_unref(&cursor_bo);
+
+	return ret;
+
+out_backoff:
+	qxl_release_backoff_reserve_list(release);
+out_free_bo:
+	qxl_bo_unref(&cursor_bo);
+out_free_release:
+	qxl_release_free(qdev, release);
+	return ret;
+}
+
 static int qxl_crtc_cursor_set2(struct drm_crtc *crtc,
 				struct drm_file *file_priv,
 				uint32_t handle,
@@ -359,6 +445,12 @@ static int qxl_crtc_cursor_set2(struct drm_crtc *crtc,
 	cursor->chunk.data_size = size;
 
 	memcpy(cursor->chunk.data, user_ptr, size);
+
+	ret = qxl_crtc_stash_cursor(crtc, cursor);
+	if (ret) {
+		DRM_ERROR("cannot save cursor, may be lost on next mode set\n");
+		ret = 0;
+	}
 
 	qxl_bo_kunmap(cursor_bo);
 
@@ -640,6 +732,12 @@ static int qxl_crtc_mode_set(struct drm_crtc *crtc,
 			   bo->surf.stride, bo->surf.format);
 		qxl_io_create_primary(qdev, 0, bo);
 		bo->is_primary = true;
+
+		ret = qxl_crtc_apply_cursor(crtc);
+		if (ret) {
+			DRM_ERROR("could not set cursor after modeset");
+			ret = 0;
+		}
 	}
 
 	if (bo->is_primary) {
